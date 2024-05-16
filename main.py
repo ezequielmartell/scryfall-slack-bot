@@ -38,7 +38,7 @@ def handle_view_submission_events(ack, body, say):
     say(
         channel=channel,
         response_type="in_channel",
-        # as_user=False,
+        as_user=True,
         blocks=[card_section]
     )
 
@@ -102,15 +102,15 @@ def handle_some_action(ack, body):
     )
 
 
-@app.command("/scryfall")
-def scryfall(ack, command, body, respond):
+@app.command("/mtgsearch")
+def mtg_search(ack, command, body, say, respond):
     # Acknowledge command request
     ack()
     text = command.get('text')
     if text:
         card = scry.search_card(search_term=text)
-        respond(
-            response_type="ephemeral",
+        say(
+            response_type="in_channel",
             blocks=card
         )
     else:
@@ -170,15 +170,20 @@ def scryfall(ack, command, body, respond):
 
 
 @app.action("post")
-def button_post(ack, body, respond):
+def button_post(ack, body, say, respond):
     ack()
     card_string = body['actions'][0]['value']
     json_card = ast.literal_eval(card_string)
     respond(
+        response_type="ephemeral",
+        text='',
+        replace_original=True,
+        delete_original=True
+    )
+    say(
         response_type="in_channel",
         blocks=[json_card],
         replace_original=True,
-        # as_user=True,
         delete_original=True
     )
 

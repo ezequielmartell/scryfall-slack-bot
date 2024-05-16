@@ -46,7 +46,7 @@ def search_card(search_term):
                 ]
             }
         ]
-
+        return [card_section]
     elif response.status_code == 404:
         blockInfo = [
             {
