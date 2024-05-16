@@ -1,0 +1,47 @@
+{
+    "display_information": {
+        "name": "MtG Bot",
+        "description": "MTG Search",
+        "background_color": "#2c2d30"
+    },
+    "features": {
+        "bot_user": {
+            "display_name": "MtG Bot",
+            "always_online": false
+        },
+        "slash_commands": [
+            {
+                "command": "/mtgsearch",
+                "url": "https://finer-yak-visually.ngrok-free.app/slack/events",
+                "description": "search mtg cards",
+                "usage_hint": "[counterspell]",
+                "should_escape": true
+            }
+        ]
+    },
+    "oauth_config": {
+        "scopes": {
+            "user": [
+                "chat:write"
+            ],
+            "bot": [
+                "commands"
+            ]
+        }
+    },
+    "settings": {
+        "event_subscriptions": {
+            "request_url": "https://finer-yak-visually.ngrok-free.app/slack/events",
+            "bot_events": [
+                "app_home_opened"
+            ]
+        },
+        "interactivity": {
+            "is_enabled": true,
+            "request_url": "https://finer-yak-visually.ngrok-free.app/slack/events"
+        },
+        "org_deploy_enabled": false,
+        "socket_mode_enabled": false,
+        "token_rotation_enabled": false
+    }
+}
