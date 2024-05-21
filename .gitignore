@@ -270,3 +270,5 @@ fabric.properties
 #####
 testing.py
 data
+letsencrypt
+acme.json

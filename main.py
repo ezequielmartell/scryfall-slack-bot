@@ -1,34 +1,76 @@
 import os
 from slack_bolt.oauth.oauth_settings import OAuthSettings
-from slack_sdk.oauth.installation_store import FileInstallationStore
-from slack_sdk.oauth.state_store import FileOAuthStateStore
 from slack_bolt import App
 from dotenv import load_dotenv
 import scry
 import ast
-import logging
+from slack_bolt.oauth.oauth_settings import OAuthSettings
+from slack_sdk.oauth.installation_store.sqlalchemy import SQLAlchemyInstallationStore
+from slack_sdk.oauth.state_store.sqlalchemy import SQLAlchemyOAuthStateStore
+import sqlalchemy
+from sqlalchemy.engine import Engine
+
+from flask import Flask, request
+from slack_bolt.adapter.flask import SlackRequestHandler
 
 load_dotenv()
 
-# logging.basicConfig(level=logging.DEBUG)
+user_auth_url = "https://mtgbot.ezdoes.xyz/slack//install"
 
-user_auth_url = ("https://slack.com/oauth/v2/authorize?state=504c8ee1-f790-41fc-8ac1-b2791af784d3&"
-                 "client_id=7103864971895.7115545845189&user_scope=chat:write")
-user_auth_url = "https://finer-yak-visually.ngrok-free.app/slack/install"
+db_user=os.environ["DB_USER"]
+db_pass=os.environ["DB_PASSWORD"]
+database_url = f"postgresql://{db_user}:{db_pass}@mtgsearch-db/slackapp"
 
-oauth_settings = OAuthSettings(
-    client_id=os.environ["SLACK_CLIENT_ID"],
-    client_secret=os.environ["SLACK_CLIENT_SECRET"],
-    scopes=["commands"],
-    user_scopes=["chat:write"],
-    installation_store=FileInstallationStore(base_dir="./data/installations"),
-    state_store=FileOAuthStateStore(expiration_seconds=600, base_dir="./data/states")
+bot_scopes = ["commands"]
+user_scopes=["chat:write"]
+
+client_id, client_secret, signing_secret = (
+    os.environ["SLACK_CLIENT_ID"],
+    os.environ["SLACK_CLIENT_SECRET"],
+    os.environ["SLACK_SIGNING_SECRET"],
 )
+
+engine: Engine = sqlalchemy.create_engine(database_url)
+installation_store = SQLAlchemyInstallationStore(
+    client_id=client_id,
+    engine=engine,
+)
+oauth_state_store = SQLAlchemyOAuthStateStore(
+    expiration_seconds=120,
+    engine=engine,
+)
+
+try:
+    engine.connect("select count(*) from slack_bots")
+except Exception as e:
+    installation_store.metadata.create_all(engine)
+    oauth_state_store.metadata.create_all(engine)
 
 app = App(
-    signing_secret=os.environ.get("SLACK_SIGNING_SECRET"),
-    oauth_settings=oauth_settings
+    signing_secret=signing_secret,
+    installation_store=installation_store,
+    oauth_settings=OAuthSettings(
+        scopes=bot_scopes,
+        user_scopes=user_scopes,
+        client_id=client_id,
+        client_secret=client_secret,
+        state_store=oauth_state_store,
+    ),
 )
+
+# oauth_settings = OAuthSettings(
+#     client_id=os.environ["SLACK_CLIENT_ID"],
+#     client_secret=os.environ["SLACK_CLIENT_SECRET"],
+#     scopes=["commands"],
+#     user_scopes=["chat:write"],
+#     installation_store=FileInstallationStore(base_dir="./data/installations"),
+#     state_store=FileOAuthStateStore(expiration_seconds=600, base_dir="./data/states")
+# )
+
+# app = App(
+#     signing_secret=os.environ.get("SLACK_SIGNING_SECRET"),
+#     oauth_settings=oauth_settings
+# )
 
 
 @app.view("")
@@ -273,6 +315,25 @@ def button_auth(ack, respond):
     )
 
 
+
+flask_app = Flask(__name__)
+handler = SlackRequestHandler(app)
+
+
+@flask_app.route("/slack/events", methods=["POST"])
+def slack_events():
+    return handler.handle(request)
+
+
+@flask_app.route("/slack/install", methods=["GET"])
+def install():
+    return handler.handle(request)
+
+
+@flask_app.route("/slack/oauth_redirect", methods=["GET"])
+def oauth_redirect():
+    return handler.handle(request)
+
 # Ready? Start your app!
 if __name__ == "__main__":
-    app.start(port=int(os.environ.get("PORT", 3000)))
+    app.start(port=int(os.environ.get("PORT", 3001)))
